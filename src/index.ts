@@ -333,7 +333,6 @@ class CanvasGrid {
         this.ctx.fillStyle = '#f1f3f5';
         this.ctx.fillRect(this.headerWidth, 0, this.canvas.width, this.headerHeight);
         this.ctx.fillRect(0, this.headerHeight, this.headerWidth, this.canvas.height);
-        this.ctx.fillRect(0, 0, this.headerWidth, this.headerHeight);
         this.ctx.textAlign = "center";
 
         let headerX = startX;
@@ -361,6 +360,9 @@ class CanvasGrid {
             this.ctx.fillText((r + 1).toString(), this.headerWidth / 2, headerY + 18);
             headerY += this.rowHeights[r] as number;
         }
+
+        this.ctx.fillStyle = '#f1f3f5';
+        this.ctx.fillRect(0, 0, this.headerWidth, this.headerHeight);
     }
 
     private getCellFromCoords(x: number, y: number) {
