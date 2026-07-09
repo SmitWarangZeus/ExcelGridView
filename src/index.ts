@@ -173,6 +173,7 @@ class CanvasGrid {
         const { row, col } = this.getCellFromCoords(x + this.scrollX - this.headerWidth, y + this.scrollY - this.headerHeight);
         if (row === -1 && col === -1) {
             this.selection = { startRow: 0, startCol: 0, endRow: this.rows - 1, endCol: this.cols - 1 };
+            this.dragStartCell = { row: 0, col: 0 }
             this.dragTarget = null;
             this.isDragging = false;
         } else if (row === -1 && col >= 0) {
@@ -314,6 +315,8 @@ class CanvasGrid {
         let startX = this.headerWidth - (this.scrollX - (startColIndex > 0 ? this.colPrefixSums[startColIndex - 1] as number : 0));
         let startY = this.headerHeight - (this.scrollY - (startRowIndex > 0 ? this.rowPrefixSums[startRowIndex - 1] as number : 0));
 
+        let selectedCell = { x: 0, y: 0, w: 0, h: 0 };
+
         let currentY = startY;
         for (let r = startRowIndex; r < this.rows; r++) {
             if (currentY > this.canvas.height) break;
@@ -332,6 +335,10 @@ class CanvasGrid {
                     this.ctx.fillRect(currentX, currentY, this.colWidths[c] as number, this.rowHeights[r] as number);
                 }
 
+                if (Math.min(this.dragStartCell.col, this.dragStartCell.row)>=0 && this.dragStartCell.col === c && this.dragStartCell.row === r) {
+                    selectedCell = { x: currentX, y: currentY, w: colWidth, h: rowHeight };
+                }
+
                 this.ctx.fillStyle = '#000000';
                 this.ctx.fillText(this.cells[r]![c]!.value || "", currentX + 5, currentY + 18);
 
@@ -339,6 +346,9 @@ class CanvasGrid {
             }
             currentY += rowHeight;
         }
+
+        this.ctx.strokeStyle = "#217346";
+        this.ctx.strokeRect(selectedCell.x, selectedCell.y, selectedCell.w, selectedCell.h);
 
         this.ctx.fillStyle = '#f1f3f5';
         this.ctx.fillRect(this.headerWidth, 0, this.canvas.width, this.headerHeight);
@@ -411,6 +421,8 @@ class CanvasGrid {
         this.canvas.addEventListener("mouseup", () => this.onMouseUp());
         this.canvas.addEventListener("mouseleave", () => this.onMouseUp());
         this.canvas.addEventListener("mousemove", (e) => this.onMouseMove(e));
+
+        window.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeyDown(e));
     }
 
     private editCell(row: number, col: number): void {
@@ -465,16 +477,16 @@ class CanvasGrid {
     private calculateMetrics(): void {
         if (!this.selection) return;
         const norm = this.selection;
-        
+
         let count = 0;
         let sum = 0;
         let min: number | null = null;
         let max: number | null = null;
-        
+
         for (let r = norm.startRow; r <= norm.endRow; r++) {
             for (let c = norm.startCol; c <= norm.endCol; c++) {
                 const rawValue = this.cells[r]![c]!.value;
-                
+
                 if (rawValue !== null && rawValue !== undefined && rawValue.trim() !== "") {
                     const num = Number(rawValue);
                     if (!isNaN(num)) {
@@ -486,14 +498,39 @@ class CanvasGrid {
                 }
             }
         }
-        
+
         const average = count > 0 ? (sum / count) : null;
-        
+
         document.getElementById("m-count")!.innerText = count.toString();
         document.getElementById("m-min")!.innerText = (min) ? min.toString() : "N/A";
         document.getElementById("m-max")!.innerText = (max) ? max.toString() : "N/A";
         document.getElementById("m-sum")!.innerText = sum.toString();
         document.getElementById("m-avg")!.innerText = (average) ? average.toString() : "N/A";
+    }
+
+    private handleKeyDown(e: KeyboardEvent): void {
+        if (Math.max(this.dragStartCell.col, this.dragStartCell.row)<0) return;
+        switch (e.key) {
+            case 'ArrowUp':
+                if (this.dragStartCell.row > 0) this.dragStartCell.row--;
+                e.preventDefault();
+                break;
+            case 'ArrowDown':
+                if (this.dragStartCell.row < this.rows - 1) this.dragStartCell.row++;
+                e.preventDefault();
+                break;
+            case 'ArrowLeft':
+                if (this.dragStartCell.col > 0) this.dragStartCell.col--;
+                e.preventDefault();
+                break;
+            case 'ArrowRight':
+                if (this.dragStartCell.col < this.cols - 1) this.dragStartCell.col++;
+                e.preventDefault();
+                break;
+            default:
+                return;
+        }
+        this.draw();
     }
 }
 
