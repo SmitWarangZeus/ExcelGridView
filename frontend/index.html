@@ -8,6 +8,24 @@
 </head>
 <body>
     <canvas id="grid"></canvas>
+    <div class="status-bar" id="statusBar">
+        <div class="metric">Count: <span id="m-count">0</span></div>
+        <div class="metric">Min: <span id="m-min">N/A</span></div>
+        <div class="metric">Max: <span id="m-max">N/A</span></div>
+        <div class="metric">Sum: <span id="m-sum">0</span></div>
+        <div class="metric">Average: <span id="m-avg">N/A</span></div>
+    </div>
     <script src="../dist/index.js" type="module"></script>
+    <!-- <script>
+        const grid = document.getElementById("grid");
+        
+        grid.onMetricsChange = (metrics) => {
+            document.getElementById('m-count').innerText = metrics.count;
+            document.getElementById('m-min').innerText = metrics.min !== null ? metrics.min : 'N/A';
+            document.getElementById('m-max').innerText = metrics.max !== null ? metrics.max : 'N/A';
+            document.getElementById('m-sum').innerText = metrics.sum;
+            document.getElementById('m-avg').innerText = metrics.average !== null ? metrics.average.toFixed(2) : 'N/A';
+        };
+    </script> -->
 </body>
 </html>

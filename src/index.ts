@@ -189,6 +189,8 @@ class CanvasGrid {
             this.selection = { startRow: row, startCol: col, endRow: row, endCol: col };
         }
         this.draw();
+
+        this.calculateMetrics();
     }
 
     private onMouseMove(e: MouseEvent): void {
@@ -247,6 +249,8 @@ class CanvasGrid {
             };
         }
         this.draw();
+
+        this.calculateMetrics();
     }
 
     private onMouseUp(): void {
@@ -280,10 +284,16 @@ class CanvasGrid {
         for (let r = 0; r < this.rows; r++) {
             const rowCells: Cell[] = [];
             for (let c = 0; c < this.cols; c++) {
+                let value: string;
+                if (Math.random() > 0.3) {
+                    value = Math.floor(Math.random() * 100).toString();
+                } else {
+                    value = Math.random() > 0.5 ? "Text" : "";
+                }
                 rowCells.push({
                     row: r,
                     col: c,
-                    value: (r < 50_000 && c < 5) ? `${r} ${c}` : ""
+                    value: (r < 50_000 && c < 5) ? value : ""
                 });
             }
             this.cells.push(rowCells);
@@ -450,6 +460,40 @@ class CanvasGrid {
             row <= this.selection.endRow &&
             col >= this.selection.startCol &&
             col <= this.selection.endCol;
+    }
+
+    private calculateMetrics(): void {
+        if (!this.selection) return;
+        const norm = this.selection;
+        
+        let count = 0;
+        let sum = 0;
+        let min: number | null = null;
+        let max: number | null = null;
+        
+        for (let r = norm.startRow; r <= norm.endRow; r++) {
+            for (let c = norm.startCol; c <= norm.endCol; c++) {
+                const rawValue = this.cells[r]![c]!.value;
+                
+                if (rawValue !== null && rawValue !== undefined && rawValue.trim() !== "") {
+                    const num = Number(rawValue);
+                    if (!isNaN(num)) {
+                        count++;
+                        sum += num;
+                        if (min === null || num < min) min = num;
+                        if (max === null || num > max) max = num;
+                    }
+                }
+            }
+        }
+        
+        const average = count > 0 ? (sum / count) : null;
+        
+        document.getElementById("m-count")!.innerText = count.toString();
+        document.getElementById("m-min")!.innerText = (min) ? min.toString() : "N/A";
+        document.getElementById("m-max")!.innerText = (max) ? max.toString() : "N/A";
+        document.getElementById("m-sum")!.innerText = sum.toString();
+        document.getElementById("m-avg")!.innerText = (average) ? average.toString() : "N/A";
     }
 }
 

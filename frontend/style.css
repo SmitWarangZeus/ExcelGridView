@@ -10,3 +10,30 @@ canvas {
   border: 1px solid #ccc;
   background: white;
 }
+
+.grid-container { 
+    overflow: auto; 
+    max-height: 500px; 
+    max-width: 1200px; 
+    border: 1px solid #ccc; 
+    background: white; 
+}
+        
+.status-bar { 
+    display: flex; 
+    gap: 20px; 
+    background: #217346; 
+    color: white; 
+    padding: 8px 15px; 
+    font-size: 13px; 
+    margin-top: 5px; 
+    width: fit-content; 
+    border-radius: 3px; 
+    bottom: 10px;
+    right: 10px;
+    position: fixed;
+}
+        
+.metric span { 
+    font-weight: bold; 
+}
