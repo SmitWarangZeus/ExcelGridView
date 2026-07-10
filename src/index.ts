@@ -1,7 +1,7 @@
 let canvas: HTMLCanvasElement;
 let grid: CanvasGrid;
-let undoStk: EditAction[] = [];
-let redoStk: EditAction[] = [];
+let undoStk: (EditAction | Resize)[] = [];
+let redoStk: (EditAction | Resize)[] = [];
 
 interface Cell {
     row: number;
@@ -46,8 +46,8 @@ class CanvasGrid {
     private lastMouseX = 0;
     private lastMouseY = 0;
 
-    private rowHeights: number[];
-    private colWidths: number[];
+    public rowHeights: number[];
+    public colWidths: number[];
     private rowPrefixSums: number[];
     private colPrefixSums: number[];
 
@@ -91,7 +91,7 @@ class CanvasGrid {
         this.resizeCanvas();
     }
 
-    private updatePrefixSums() {
+    public updatePrefixSums() {
         let rowSum = 0;
         for (let i = 0; i < this.rows; i++) {
             rowSum += this.rowHeights[i] as number;
@@ -255,6 +255,14 @@ class CanvasGrid {
     }
 
     private onMouseUp(): void {
+        if (this.resizing) {
+            if (this.resizing.type === 'col') {
+                this.resizing.newSize = this.colWidths[this.resizing.index]!;
+            } else {
+                this.resizing.newSize = this.rowHeights[this.resizing.index]!;
+            }
+            undoStk.push(this.resizing);
+        }
         this.isDragging = false;
         this.resizing = null;
         this.dragTarget = null;
@@ -335,7 +343,7 @@ class CanvasGrid {
                     this.ctx.fillRect(currentX, currentY, this.colWidths[c] as number, this.rowHeights[r] as number);
                 }
 
-                if (Math.min(this.dragStartCell.col, this.dragStartCell.row)>=0 && this.dragStartCell.col === c && this.dragStartCell.row === r) {
+                if (Math.min(this.dragStartCell.col, this.dragStartCell.row) >= 0 && this.dragStartCell.col === c && this.dragStartCell.row === r) {
                     selectedCell = { x: currentX, y: currentY, w: colWidth, h: rowHeight };
                 }
 
@@ -423,6 +431,46 @@ class CanvasGrid {
         this.canvas.addEventListener("mousemove", (e) => this.onMouseMove(e));
 
         window.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeyDown(e));
+
+        window.addEventListener("keydown", (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.key.toLowerCase() === "z") {
+                if (undoStk) {
+                    let undoAction: EditAction | Resize = undoStk.pop()!;
+                    redoStk.push(undoAction);
+                    if ("type" in undoAction) {
+                        if (undoAction.type === "col") {
+                            grid.colWidths[undoAction.index] = undoAction.oldSize;
+                        } else {
+                            grid.rowHeights[undoAction.index] = undoAction.oldSize;
+                        }
+                        grid.updatePrefixSums();
+                    } else {
+                        grid.cells[undoAction.row]![undoAction.col]!.value = undoAction.oldVal;
+                    }
+                    grid.draw();
+                }
+            }
+        });
+
+        window.addEventListener("keydown", (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.key.toLowerCase() === "y") {
+                if (redoStk) {
+                    let redoAction: EditAction | Resize = redoStk.pop()!;
+                    undoStk.push(redoAction);
+                    if ("type" in redoAction) {
+                        if (redoAction.type === "col") {
+                            grid.colWidths[redoAction.index] = redoAction.newSize;
+                        } else {
+                            grid.rowHeights[redoAction.index] = redoAction.newSize;
+                        }
+                        grid.updatePrefixSums();
+                    } else {
+                        grid.cells[redoAction.row]![redoAction.col]!.value = redoAction.newVal;
+                    }
+                    grid.draw();
+                }
+            }
+        });
     }
 
     private editCell(row: number, col: number): void {
@@ -509,22 +557,38 @@ class CanvasGrid {
     }
 
     private handleKeyDown(e: KeyboardEvent): void {
-        if (Math.max(this.dragStartCell.col, this.dragStartCell.row)<0) return;
+        if (Math.max(this.dragStartCell.col, this.dragStartCell.row) < 0) return;
         switch (e.key) {
             case 'ArrowUp':
-                if (this.dragStartCell.row > 0) this.dragStartCell.row--;
+                if (this.dragStartCell.row > 0) {
+                    this.dragStartCell.row--;
+                    this.dragTarget = "cells";
+                    this.selection = { startRow: this.dragStartCell.row, startCol: this.dragStartCell.col, endRow: this.dragStartCell.row, endCol: this.dragStartCell.col }
+                }
                 e.preventDefault();
                 break;
             case 'ArrowDown':
-                if (this.dragStartCell.row < this.rows - 1) this.dragStartCell.row++;
+                if (this.dragStartCell.row < this.rows - 1) {
+                    this.dragStartCell.row++;
+                    this.dragTarget = "cells";
+                    this.selection = { startRow: this.dragStartCell.row, startCol: this.dragStartCell.col, endRow: this.dragStartCell.row, endCol: this.dragStartCell.col }
+                }
                 e.preventDefault();
                 break;
             case 'ArrowLeft':
-                if (this.dragStartCell.col > 0) this.dragStartCell.col--;
+                if (this.dragStartCell.col > 0) {
+                    this.dragStartCell.col--;
+                    this.dragTarget = "cells";
+                    this.selection = { startRow: this.dragStartCell.row, startCol: this.dragStartCell.col, endRow: this.dragStartCell.row, endCol: this.dragStartCell.col }
+                }
                 e.preventDefault();
                 break;
             case 'ArrowRight':
-                if (this.dragStartCell.col < this.cols - 1) this.dragStartCell.col++;
+                if (this.dragStartCell.col < this.cols - 1) {
+                    this.dragStartCell.col++;
+                    this.dragTarget = "cells";
+                    this.selection = { startRow: this.dragStartCell.row, startCol: this.dragStartCell.col, endRow: this.dragStartCell.row, endCol: this.dragStartCell.col }
+                }
                 e.preventDefault();
                 break;
             default:
@@ -537,26 +601,4 @@ class CanvasGrid {
 window.addEventListener("DOMContentLoaded", () => {
     canvas = document.getElementById("grid") as HTMLCanvasElement;
     grid = new CanvasGrid(canvas, 100_000, 500, 80, 25);
-});
-
-window.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.ctrlKey && e.key.toLowerCase() === "z") {
-        if (undoStk) {
-            let editAction: EditAction = undoStk.pop()!;
-            redoStk.push(editAction);
-            grid.cells[editAction.row]![editAction.col]!.value = editAction.oldVal;
-            grid.draw();
-        }
-    }
-});
-
-window.addEventListener("keydown", (e: KeyboardEvent) => {
-    if (e.ctrlKey && e.key.toLowerCase() === "y") {
-        if (redoStk) {
-            let editAction: EditAction = redoStk.pop()!;
-            undoStk.push(editAction);
-            grid.cells[editAction.row]![editAction.col]!.value = editAction.newVal;
-            grid.draw();
-        }
-    }
 });
