@@ -35,6 +35,14 @@ export interface CellRecord {
     value: string;
 }
 
+export interface EmployeeRecord {
+    id: number;
+    firstName: string;
+    lastName: string;
+    age: number;
+    salary: number;
+}
+
 export interface PixelRect {
     x: number;
     y: number;

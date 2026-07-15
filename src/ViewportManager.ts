@@ -29,12 +29,6 @@ export class ViewportManager {
         this.clampScroll();
     }
 
-    // public setScroll(x: number, y: number): void {
-    //     this.scrollX = x;
-    //     this.scrollY = y;
-    //     this.clampScroll();
-    // }
-
     private clampScroll(): void {
         const maxScrollX = Math.max(0, this.sizeStore.getTotalWidth() - this.canvasWidth);
         const maxScrollY = Math.max(0, this.sizeStore.getTotalHeight() - this.canvasHeight);

@@ -22,14 +22,6 @@ export class GridDataStore {
         }
     }
 
-    // public hasValue(row: number, col: number): boolean {
-    //     return this.values.has(this.toKey(row, col));
-    // }
-
-    // public get populatedCellCount(): number {
-    //     return this.values.size;
-    // }
-
     public *iterateNonEmptyInRange(range: CellRange): IterableIterator<{ row: number; col: number; value: string }> {
         for (const [key, value] of this.values) {
             const row = Math.floor(key / this.colCount);

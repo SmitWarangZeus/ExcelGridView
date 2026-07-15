@@ -32,12 +32,14 @@ window.addEventListener("DOMContentLoaded", () => {
         renderSummary,
     );
 
-    const records = JsonDataLoader.generateRecords(
-        GridConfig.GENERATED_RECORD_ROW_LIMIT,
-        GridConfig.GENERATED_RECORD_COL_LIMIT,
-        GridConfig.GENERATED_RECORD_ROW_LIMIT * GridConfig.GENERATED_RECORD_COL_LIMIT,
-    );
-    JsonDataLoader.loadIntoStore(records, grid.getDataStore());
-
     grid.draw();
+
+    JsonDataLoader.loadEmployeesFromUrlIntoStore(GridConfig.EMPLOYEE_DATA_URL, grid.getDataStore())
+        .then((loadedCount) => {
+            console.log(`Loaded ${loadedCount} employee record(s) from "${GridConfig.EMPLOYEE_DATA_URL}".`);
+            grid.draw();
+        })
+        .catch((error: unknown) => {
+            console.error(`Could not load employee data from "${GridConfig.EMPLOYEE_DATA_URL}":`, error);
+        });
 });
