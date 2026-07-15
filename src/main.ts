@@ -34,7 +34,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
     grid.draw();
 
-    JsonDataLoader.loadEmployeesFromUrlIntoStore(GridConfig.EMPLOYEE_DATA_URL, grid.getDataStore())
+    JsonDataLoader.loadEmployeesFromUrlIntoStore(grid.getDataStore())
         .then((loadedCount) => {
             console.log(`Loaded ${loadedCount} employee record(s) from "${GridConfig.EMPLOYEE_DATA_URL}".`);
             grid.draw();

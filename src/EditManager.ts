@@ -2,6 +2,7 @@ import { GridDataStore } from "./data/GridDataStore.js";
 import { CommandManager } from "./commands/CommandManager.js";
 import { EditCellCommand } from "./commands/EditCellCommand.js";
 import type { PixelRect } from "./GridTypes.js";
+import { FormulaParser } from "./FormulaParser.js";
 
 export class EditManager {
     private readonly inputEl: HTMLInputElement;
@@ -49,12 +50,15 @@ export class EditManager {
         }
         const row = this.editingRow;
         const col = this.editingCol;
-        const newValue = this.inputEl.value;
+        let newValue = this.inputEl.value;
         const oldValue = this.valueBeforeEdit;
 
         this.hideInput();
 
         if (newValue !== oldValue) {
+            if (newValue.startsWith("=")){
+                newValue = FormulaParser.evaluate(newValue, this.dataStore);
+            }
             const command = new EditCellCommand(this.dataStore, row, col, oldValue, newValue, this.onChange);
             this.commandManager.executeCommand(command);
         } else {

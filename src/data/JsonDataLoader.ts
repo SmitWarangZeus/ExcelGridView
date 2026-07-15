@@ -43,7 +43,7 @@ export class JsonDataLoader {
         return records;
     }
 
-    public static async loadEmployeesFromUrlIntoStore(url: string, store: GridDataStore): Promise<number> {
+    public static async loadEmployeesFromUrlIntoStore(store: GridDataStore): Promise<number> {
         const records = this.mapEmployeesToCellRecords(employees);
         this.loadIntoStore(records, store);
         return records.length / Object.keys(this.COLUMNS).length;
