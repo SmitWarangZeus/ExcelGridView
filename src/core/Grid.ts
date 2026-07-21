@@ -3,20 +3,26 @@ import type { PixelRect, ResizeState, SummaryResult } from "../GridTypes.js";
 import { RowColumnSizeStore } from "../data/RowColumnSizeStore.js";
 import { GridDataStore } from "../data/GridDataStore.js";
 import { ViewportManager } from "../ViewportManager.js";
-import { SelectionManager } from "../SelectionManager.js";
 import { CommandManager } from "../commands/CommandManager.js";
 import { ResizeColumnCommand } from "../commands/ResizeColumnCommand.js";
 import { ResizeRowCommand } from "../commands/ResizeRowCommand.js";
 import { SummaryCalculator } from "../SummaryCalculator.js";
 import { EditManager } from "../EditManager.js";
 import { GridRenderer } from "../GridRenderer.js";
+import { RowHeaderSelection } from "../Selection/RowHeaderSelection.js";
+import { ColHeaderSelection } from "../Selection/ColHeaderSelection.js";
+import { SubGridSelection } from "../Selection/SubGridSelection.js";
+import { GridSelection } from "../Selection/GridSelection.js";
 
 export class Grid {
     private readonly ctx: CanvasRenderingContext2D;
     private readonly sizeStore: RowColumnSizeStore;
     private readonly dataStore: GridDataStore;
     private readonly viewport: ViewportManager;
-    private readonly selectionManager: SelectionManager;
+    private readonly rowHeaderSelection: RowHeaderSelection;
+    private readonly colHeaderSelection: ColHeaderSelection;
+    private readonly subGridSelection: SubGridSelection;
+    private readonly gridSelection: GridSelection;
     private readonly commandManager: CommandManager;
     private readonly summaryCalculator: SummaryCalculator;
     private readonly editManager: EditManager;
@@ -26,6 +32,9 @@ export class Grid {
     private lastMouseX = 0;
     private lastMouseY = 0;
     private resizeState: ResizeState | null = null;
+
+    private handlers: (RowHeaderSelection | ColHeaderSelection | SubGridSelection | GridSelection)[];
+    private activeHandler: RowHeaderSelection | ColHeaderSelection | SubGridSelection | GridSelection | null = null;
 
     constructor(
         private readonly canvas: HTMLCanvasElement,
@@ -44,11 +53,15 @@ export class Grid {
         this.sizeStore = new RowColumnSizeStore(rowCount, colCount, cellHeight, cellWidth);
         this.dataStore = new GridDataStore(colCount);
         this.viewport = new ViewportManager(this.sizeStore);
-        this.selectionManager = new SelectionManager(rowCount, colCount);
+        this.rowHeaderSelection = new RowHeaderSelection(rowCount, colCount);
+        this.colHeaderSelection = new ColHeaderSelection(rowCount, colCount);
+        this.subGridSelection = new SubGridSelection(rowCount, colCount);
+        this.gridSelection = new GridSelection(rowCount, colCount);
+        this.handlers = [this.rowHeaderSelection, this.colHeaderSelection, this.subGridSelection, this.gridSelection];
         this.commandManager = new CommandManager();
         this.summaryCalculator = new SummaryCalculator(this.dataStore);
         this.editManager = new EditManager(this.dataStore, this.commandManager, () => this.draw());
-        this.renderer = new GridRenderer(this.sizeStore, this.dataStore, this.selectionManager, this.viewport);
+        this.renderer = new GridRenderer(this.sizeStore, this.dataStore, this.viewport);
 
         this.attachEvents();
         this.resizeCanvasToWindow();
@@ -59,7 +72,7 @@ export class Grid {
     }
 
     public draw(): void {
-        this.renderer.draw(this.ctx, this.canvas.width, this.canvas.height);
+        this.renderer.draw(this.ctx, this.canvas.width, this.canvas.height, this.activeHandler);
     }
 
     public undo(): void {
@@ -129,18 +142,12 @@ export class Grid {
 
         const { row, col } = this.getCellAtCanvasCoords(x, y);
 
-        if (row === -1 && col === -1) {
-            this.selectionManager.selectAll();
-        } else if (row === -1 && col >= 0) {
-            this.selectionManager.beginColumnSelection(col);
-        } else if (col === -1 && row >= 0) {
-            this.selectionManager.beginRowSelection(row);
-        } else if (row >= 0 && col >= 0) {
-            this.selectionManager.beginCellSelection(row, col);
-        } else {
-            this.isPanning = true;
-            this.lastMouseX = e.clientX;
-            this.lastMouseY = e.clientY;
+        for (const handler of this.handlers) {
+            if (handler.hitTest(x, y, row, col)){
+                this.activeHandler = handler;
+                this.activeHandler.onPointerDown(row, col);
+                break;
+            }
         }
 
         this.draw();
@@ -170,13 +177,13 @@ export class Grid {
             return;
         }
 
-        if (!this.selectionManager.getDragTarget()) {
+        if (!this.activeHandler?.getDragTarget()) {
             return;
         }
 
         const { x, y } = this.getCanvasCoords(e);
         const { row, col } = this.getCellAtCanvasCoords(x, y);
-        this.selectionManager.updateDragTo(row, col);
+        this.activeHandler?.onPointerMove(row, col);
         this.draw();
         this.updateSummary();
     }
@@ -198,7 +205,7 @@ export class Grid {
         }
         this.isPanning = false;
         this.resizeState = null;
-        this.selectionManager.endDrag();
+        this.activeHandler?.endDrag();
     }
 
     private onDoubleClick(e: MouseEvent): void {
@@ -225,25 +232,29 @@ export class Grid {
             return;
         }
 
-        if (!this.selectionManager.hasActiveCell()) {
+        if (!this.activeHandler?.hasActiveCell()) {
             return;
         }
 
         switch (e.key) {
             case "ArrowUp":
-                this.selectionManager.moveActiveCell(-1, 0);
+                this.activeHandler = this.subGridSelection;
+                this.activeHandler.moveActiveCell(-1, 0);
                 break;
             case "ArrowDown":
-                this.selectionManager.moveActiveCell(1, 0);
+                this.activeHandler = this.subGridSelection;
+                this.activeHandler.moveActiveCell(1, 0);
                 break;
             case "ArrowLeft":
-                this.selectionManager.moveActiveCell(0, -1);
+                this.activeHandler = this.subGridSelection;
+                this.activeHandler.moveActiveCell(0, -1);
                 break;
             case "ArrowRight":
-                this.selectionManager.moveActiveCell(0, 1);
+                this.activeHandler = this.subGridSelection;
+                this.activeHandler.moveActiveCell(0, 1);
                 break;
             case "Enter": {
-                const { row, col } = this.selectionManager.getActiveCell();
+                const { row, col } = this.activeHandler.getActiveCell();
                 this.beginCellEdit(row, col);
                 return;
             }
@@ -339,7 +350,7 @@ export class Grid {
         if (!this.onSummaryChange) {
             return;
         }
-        const selection = this.selectionManager.getSelection();
+        const selection = this.activeHandler?.getSelection();
         if (!selection) {
             return;
         }
