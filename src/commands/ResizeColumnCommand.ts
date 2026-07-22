@@ -7,16 +7,16 @@ export class ResizeColumnCommand implements ICommand {
         private readonly colIndex: number,
         private readonly oldWidth: number,
         private readonly newWidth: number,
-        private readonly onApplied?: () => void,
+        // private readonly onApplied?: () => void,
     ) {}
 
     public execute(): void {
         this.sizeStore.setColWidth(this.colIndex, this.newWidth);
-        this.onApplied?.();
+        // this.onApplied?.();
     }
 
     public undo(): void {
         this.sizeStore.setColWidth(this.colIndex, this.oldWidth);
-        this.onApplied?.();
+        // this.onApplied?.();
     }
 }
