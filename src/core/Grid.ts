@@ -1,5 +1,5 @@
 import { GridConfig } from "../GridConfig.js";
-import type { PixelRect, ResizeState, SummaryResult } from "../GridTypes.js";
+import type { ActiveHandler, PixelRect, ResizeState, SummaryResult } from "../GridTypes.js";
 import { RowColumnSizeStore } from "../data/RowColumnSizeStore.js";
 import { GridDataStore } from "../data/GridDataStore.js";
 import { ViewportManager } from "../ViewportManager.js";
@@ -10,6 +10,12 @@ import { ResizeRowCommand } from "../commands/ResizeRowCommand.js";
 import { SummaryCalculator } from "../SummaryCalculator.js";
 import { EditManager } from "../EditManager.js";
 import { GridRenderer } from "../GridRenderer.js";
+import { ColHeaderSelection } from "../Selection/ColHeaderSelection.js";
+import { GridSelection } from "../Selection/GridSelection.js";
+import { RowHeaderSelection } from "../Selection/RowHeaderSelection.js";
+import { SubGridSelection } from "../Selection/SubGridSelection.js";
+import { ColResize } from "../Resize/ColResize.js";
+import { RowResize } from "../Resize/RowResize.js";
 
 export class Grid {
     private readonly ctx: CanvasRenderingContext2D;
@@ -26,6 +32,15 @@ export class Grid {
     private lastMouseX = 0;
     private lastMouseY = 0;
     private resizeState: ResizeState | null = null;
+
+    private readonly handlers: ActiveHandler[];
+    private activeHandler: ActiveHandler = null;
+    private colHeaderSelection: ColHeaderSelection;
+    private gridSelection: GridSelection;
+    private rowHeaderSelection: RowHeaderSelection;
+    private subGridSelection: SubGridSelection;
+    private colResize: ColResize;
+    private rowResize: RowResize;
 
     constructor(
         private readonly canvas: HTMLCanvasElement,
@@ -49,6 +64,13 @@ export class Grid {
         this.summaryCalculator = new SummaryCalculator(this.dataStore);
         this.editManager = new EditManager(this.dataStore, this.commandManager, () => this.draw());
         this.renderer = new GridRenderer(this.sizeStore, this.dataStore, this.selectionManager, this.viewport);
+        this.colHeaderSelection = new ColHeaderSelection(this.selectionManager, this.viewport, this.sizeStore, canvas);
+        this.gridSelection = new GridSelection(this.selectionManager, this.viewport, this.sizeStore, canvas);
+        this.rowHeaderSelection = new RowHeaderSelection(this.selectionManager, this.viewport, this.sizeStore, canvas);
+        this.subGridSelection = new SubGridSelection(this.selectionManager, this.viewport, this.sizeStore, canvas);
+        this.colResize = new ColResize(this.resizeState, this.viewport, this.sizeStore, canvas, this.commandManager);
+        this.rowResize = new RowResize(this.resizeState, this.viewport, this.sizeStore, canvas, this.commandManager);
+        this.handlers = [this.colResize, this.rowResize, this.colHeaderSelection, this.gridSelection, this.rowHeaderSelection, this.subGridSelection];
 
         this.attachEvents();
         this.resizeCanvasToWindow();
@@ -103,44 +125,51 @@ export class Grid {
     }
 
     private onMouseDown(e: MouseEvent): void {
-        const { x, y } = this.getCanvasCoords(e);
+        // const { x, y } = this.getCanvasCoords(e);
 
-        const colToResize = this.findColumnResizeHandle(x, y);
-        if (colToResize !== null) {
-            this.resizeState = {
-                axis: "col",
-                index: colToResize,
-                startPos: e.clientX,
-                oldSize: this.sizeStore.getColWidth(colToResize),
-            };
-            return;
-        }
+        // const colToResize = this.findColumnResizeHandle(x, y);
+        // if (colToResize !== null) {
+        //     this.resizeState = {
+        //         axis: "col",
+        //         index: colToResize,
+        //         startPos: e.clientX,
+        //         oldSize: this.sizeStore.getColWidth(colToResize),
+        //     };
+        //     return;
+        // }
 
-        const rowToResize = this.findRowResizeHandle(x, y);
-        if (rowToResize !== null) {
-            this.resizeState = {
-                axis: "row",
-                index: rowToResize,
-                startPos: e.clientY,
-                oldSize: this.sizeStore.getRowHeight(rowToResize),
-            };
-            return;
-        }
+        // const rowToResize = this.findRowResizeHandle(x, y);
+        // if (rowToResize !== null) {
+        //     this.resizeState = {
+        //         axis: "row",
+        //         index: rowToResize,
+        //         startPos: e.clientY,
+        //         oldSize: this.sizeStore.getRowHeight(rowToResize),
+        //     };
+        //     return;
+        // }
 
-        const { row, col } = this.getCellAtCanvasCoords(x, y);
+        // const { row, col } = this.getCellAtCanvasCoords(x, y);
 
-        if (row === -1 && col === -1) {
-            this.selectionManager.selectAll();
-        } else if (row === -1 && col >= 0) {
-            this.selectionManager.beginColumnSelection(col);
-        } else if (col === -1 && row >= 0) {
-            this.selectionManager.beginRowSelection(row);
-        } else if (row >= 0 && col >= 0) {
-            this.selectionManager.beginCellSelection(row, col);
-        } else {
-            this.isPanning = true;
-            this.lastMouseX = e.clientX;
-            this.lastMouseY = e.clientY;
+        // if (row === -1 && col === -1) {
+        //     this.selectionManager.selectAll();
+        // } else if (row === -1 && col >= 0) {
+        //     this.selectionManager.beginColumnSelection(col);
+        // } else if (col === -1 && row >= 0) {
+        //     this.selectionManager.beginRowSelection(row);
+        // } else if (row >= 0 && col >= 0) {
+        //     this.selectionManager.beginCellSelection(row, col);
+        // } else {
+        //     this.isPanning = true;
+        //     this.lastMouseX = e.clientX;
+        //     this.lastMouseY = e.clientY;
+        // }
+        for (let handler of this.handlers) {
+            if (handler?.hitTest(e)) {
+                this.activeHandler = handler;
+                this.activeHandler.onPointerDown(e);
+                break;
+            }
         }
 
         this.draw();
@@ -156,49 +185,52 @@ export class Grid {
             return;
         }
 
-        if (this.resizeState) {
-            if (this.resizeState.axis === "col") {
-                const delta = e.clientX - this.resizeState.startPos;
-                const newWidth = Math.max(GridConfig.MIN_COL_WIDTH, this.resizeState.oldSize + delta);
-                this.sizeStore.setColWidth(this.resizeState.index, newWidth);
-            } else {
-                const delta = e.clientY - this.resizeState.startPos;
-                const newHeight = Math.max(GridConfig.MIN_ROW_HEIGHT, this.resizeState.oldSize + delta);
-                this.sizeStore.setRowHeight(this.resizeState.index, newHeight);
-            }
-            this.draw();
-            return;
-        }
+        // if (this.resizeState) {
+        //     if (this.resizeState.axis === "col") {
+        //         const delta = e.clientX - this.resizeState.startPos;
+        //         const newWidth = Math.max(GridConfig.MIN_COL_WIDTH, this.resizeState.oldSize + delta);
+        //         this.sizeStore.setColWidth(this.resizeState.index, newWidth);
+        //     } else {
+        //         const delta = e.clientY - this.resizeState.startPos;
+        //         const newHeight = Math.max(GridConfig.MIN_ROW_HEIGHT, this.resizeState.oldSize + delta);
+        //         this.sizeStore.setRowHeight(this.resizeState.index, newHeight);
+        //     }
+        //     this.draw();
+        //     return;
+        // }
 
-        if (!this.selectionManager.getDragTarget()) {
-            return;
-        }
+        // if (!this.selectionManager.getDragTarget()) {
+        //     return;
+        // }
 
-        const { x, y } = this.getCanvasCoords(e);
-        const { row, col } = this.getCellAtCanvasCoords(x, y);
-        this.selectionManager.updateDragTo(row, col);
+        // const { x, y } = this.getCanvasCoords(e);
+        // const { row, col } = this.getCellAtCanvasCoords(x, y);
+        // this.selectionManager.updateDragTo(row, col);
+        this.activeHandler?.onPointerMove(e);
         this.draw();
         this.updateSummary();
     }
 
     private onMouseUp(): void {
-        if (this.resizeState) {
-            const { axis, index, oldSize } = this.resizeState;
-            if (axis === "col") {
-                const newSize = this.sizeStore.getColWidth(index);
-                this.commandManager.executeCommand(
-                    new ResizeColumnCommand(this.sizeStore, index, oldSize, newSize, () => this.draw()),
-                );
-            } else {
-                const newSize = this.sizeStore.getRowHeight(index);
-                this.commandManager.executeCommand(
-                    new ResizeRowCommand(this.sizeStore, index, oldSize, newSize, () => this.draw()),
-                );
-            }
-        }
+        // if (this.resizeState) {
+        //     const { axis, index, oldSize } = this.resizeState;
+        //     if (axis === "col") {
+        //         const newSize = this.sizeStore.getColWidth(index);
+        //         this.commandManager.executeCommand(
+        //             // new ResizeColumnCommand(this.sizeStore, index, oldSize, newSize, () => this.draw()),
+        //             new ResizeColumnCommand(this.sizeStore, index, oldSize, newSize),
+        //         );
+        //     } else {
+        //         const newSize = this.sizeStore.getRowHeight(index);
+        //         this.commandManager.executeCommand(
+        //             new ResizeRowCommand(this.sizeStore, index, oldSize, newSize, () => this.draw()),
+        //         );
+        //     }
+        // }
         this.isPanning = false;
-        this.resizeState = null;
-        this.selectionManager.endDrag();
+        // this.resizeState = null;
+        // this.selectionManager.endDrag();
+        this.activeHandler?.onPointerUp();
     }
 
     private onDoubleClick(e: MouseEvent): void {
@@ -217,11 +249,13 @@ export class Grid {
         if (e.ctrlKey && e.key.toLowerCase() === "z") {
             e.preventDefault();
             this.undo();
+            this.draw();
             return;
         }
         if (e.ctrlKey && e.key.toLowerCase() === "y") {
             e.preventDefault();
             this.redo();
+            this.draw();
             return;
         }
 

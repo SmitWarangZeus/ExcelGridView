@@ -1,3 +1,10 @@
+import type { ColResize } from "./Resize/ColResize.js";
+import type { RowResize } from "./Resize/RowResize.js";
+import type { ColHeaderSelection } from "./Selection/ColHeaderSelection.js";
+import type { GridSelection } from "./Selection/GridSelection.js";
+import type { RowHeaderSelection } from "./Selection/RowHeaderSelection.js";
+import type { SubGridSelection } from "./Selection/SubGridSelection.js";
+
 export interface CellPosition {
     row: number;
     col: number;
@@ -49,3 +56,5 @@ export interface PixelRect {
     width: number;
     height: number;
 }
+
+export type ActiveHandler = ColHeaderSelection | GridSelection | RowHeaderSelection | SubGridSelection | ColResize | RowResize | null;

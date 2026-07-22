@@ -7,16 +7,16 @@ export class ResizeRowCommand implements ICommand {
         private readonly rowIndex: number,
         private readonly oldHeight: number,
         private readonly newHeight: number,
-        private readonly onApplied?: () => void,
+        // private readonly onApplied?: () => void,
     ) {}
 
     public execute(): void {
         this.sizeStore.setRowHeight(this.rowIndex, this.newHeight);
-        this.onApplied?.();
+        // this.onApplied?.();
     }
 
     public undo(): void {
         this.sizeStore.setRowHeight(this.rowIndex, this.oldHeight);
-        this.onApplied?.();
+        // this.onApplied?.();
     }
 }
