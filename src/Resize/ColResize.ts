@@ -56,7 +56,6 @@ export class ColResize {
         const colToResize = this.findColumnResizeHandle(x, y);
         if (colToResize !== null) {
             this.resizeState = {
-                axis: "col",
                 index: colToResize,
                 startPos: e.clientX,
                 oldSize: this.sizeStore.getColWidth(colToResize),
@@ -74,7 +73,7 @@ export class ColResize {
 
     public onPointerUp() {
         if (this.resizeState) {
-            const { axis, index, oldSize } = this.resizeState;
+            const { index, oldSize } = this.resizeState;
             const newSize = this.sizeStore.getColWidth(index);
             this.commandManager.executeCommand(
                 new ResizeColumnCommand(this.sizeStore, index, oldSize, newSize),

@@ -11,20 +11,6 @@ export class JsonDataLoader {
         SALARY: 4,
     } as const;
 
-    // public static async loadFromUrl(url: string): Promise<EmployeeRecord[]> {
-    //     const response = await fetch(url);
-    //     if (!response.ok) {
-    //         throw new Error(`Failed to load JSON data file "${url}": ${response.status} ${response.statusText}`);
-    //     }
-
-    //     const parsed: unknown = await response.json();
-    //     if (!Array.isArray(parsed)) {
-    //         throw new Error(`JSON data file "${url}" must contain an array of employee records.`);
-    //     }
-
-    //     return parsed as EmployeeRecord[];
-    // }
-
     public static mapEmployeesToCellRecords(employees: EmployeeRecord[]): CellRecord[] {
         const records: CellRecord[] = [];
 
@@ -43,7 +29,7 @@ export class JsonDataLoader {
         return records;
     }
 
-    public static async loadEmployeesFromUrlIntoStore(store: GridDataStore): Promise<number> {
+    public static async loadEmployeesIntoStore(store: GridDataStore): Promise<number> {
         const records = this.mapEmployeesToCellRecords(employees);
         this.loadIntoStore(records, store);
         return records.length / Object.keys(this.COLUMNS).length;

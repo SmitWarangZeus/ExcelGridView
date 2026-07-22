@@ -5,8 +5,6 @@ import { GridDataStore } from "../data/GridDataStore.js";
 import { ViewportManager } from "../ViewportManager.js";
 import { SelectionManager } from "../SelectionManager.js";
 import { CommandManager } from "../commands/CommandManager.js";
-import { ResizeColumnCommand } from "../commands/ResizeColumnCommand.js";
-import { ResizeRowCommand } from "../commands/ResizeRowCommand.js";
 import { SummaryCalculator } from "../SummaryCalculator.js";
 import { EditManager } from "../EditManager.js";
 import { GridRenderer } from "../GridRenderer.js";
@@ -28,9 +26,6 @@ export class Grid {
     private readonly editManager: EditManager;
     private readonly renderer: GridRenderer;
 
-    private isPanning = false;
-    private lastMouseX = 0;
-    private lastMouseY = 0;
     private resizeState: ResizeState | null = null;
 
     private readonly handlers: ActiveHandler[];
@@ -125,45 +120,6 @@ export class Grid {
     }
 
     private onMouseDown(e: MouseEvent): void {
-        // const { x, y } = this.getCanvasCoords(e);
-
-        // const colToResize = this.findColumnResizeHandle(x, y);
-        // if (colToResize !== null) {
-        //     this.resizeState = {
-        //         axis: "col",
-        //         index: colToResize,
-        //         startPos: e.clientX,
-        //         oldSize: this.sizeStore.getColWidth(colToResize),
-        //     };
-        //     return;
-        // }
-
-        // const rowToResize = this.findRowResizeHandle(x, y);
-        // if (rowToResize !== null) {
-        //     this.resizeState = {
-        //         axis: "row",
-        //         index: rowToResize,
-        //         startPos: e.clientY,
-        //         oldSize: this.sizeStore.getRowHeight(rowToResize),
-        //     };
-        //     return;
-        // }
-
-        // const { row, col } = this.getCellAtCanvasCoords(x, y);
-
-        // if (row === -1 && col === -1) {
-        //     this.selectionManager.selectAll();
-        // } else if (row === -1 && col >= 0) {
-        //     this.selectionManager.beginColumnSelection(col);
-        // } else if (col === -1 && row >= 0) {
-        //     this.selectionManager.beginRowSelection(row);
-        // } else if (row >= 0 && col >= 0) {
-        //     this.selectionManager.beginCellSelection(row, col);
-        // } else {
-        //     this.isPanning = true;
-        //     this.lastMouseX = e.clientX;
-        //     this.lastMouseY = e.clientY;
-        // }
         for (let handler of this.handlers) {
             if (handler?.hitTest(e)) {
                 this.activeHandler = handler;
@@ -177,59 +133,12 @@ export class Grid {
     }
 
     private onMouseMove(e: MouseEvent): void {
-        if (this.isPanning) {
-            this.viewport.scrollBy(this.lastMouseX - e.clientX, this.lastMouseY - e.clientY);
-            this.lastMouseX = e.clientX;
-            this.lastMouseY = e.clientY;
-            this.draw();
-            return;
-        }
-
-        // if (this.resizeState) {
-        //     if (this.resizeState.axis === "col") {
-        //         const delta = e.clientX - this.resizeState.startPos;
-        //         const newWidth = Math.max(GridConfig.MIN_COL_WIDTH, this.resizeState.oldSize + delta);
-        //         this.sizeStore.setColWidth(this.resizeState.index, newWidth);
-        //     } else {
-        //         const delta = e.clientY - this.resizeState.startPos;
-        //         const newHeight = Math.max(GridConfig.MIN_ROW_HEIGHT, this.resizeState.oldSize + delta);
-        //         this.sizeStore.setRowHeight(this.resizeState.index, newHeight);
-        //     }
-        //     this.draw();
-        //     return;
-        // }
-
-        // if (!this.selectionManager.getDragTarget()) {
-        //     return;
-        // }
-
-        // const { x, y } = this.getCanvasCoords(e);
-        // const { row, col } = this.getCellAtCanvasCoords(x, y);
-        // this.selectionManager.updateDragTo(row, col);
         this.activeHandler?.onPointerMove(e);
         this.draw();
         this.updateSummary();
     }
 
     private onMouseUp(): void {
-        // if (this.resizeState) {
-        //     const { axis, index, oldSize } = this.resizeState;
-        //     if (axis === "col") {
-        //         const newSize = this.sizeStore.getColWidth(index);
-        //         this.commandManager.executeCommand(
-        //             // new ResizeColumnCommand(this.sizeStore, index, oldSize, newSize, () => this.draw()),
-        //             new ResizeColumnCommand(this.sizeStore, index, oldSize, newSize),
-        //         );
-        //     } else {
-        //         const newSize = this.sizeStore.getRowHeight(index);
-        //         this.commandManager.executeCommand(
-        //             new ResizeRowCommand(this.sizeStore, index, oldSize, newSize, () => this.draw()),
-        //         );
-        //     }
-        // }
-        this.isPanning = false;
-        // this.resizeState = null;
-        // this.selectionManager.endDrag();
         this.activeHandler?.onPointerUp();
     }
 
@@ -265,15 +174,19 @@ export class Grid {
 
         switch (e.key) {
             case "ArrowUp":
+                this.activeHandler = this.subGridSelection;
                 this.selectionManager.moveActiveCell(-1, 0);
                 break;
             case "ArrowDown":
+                this.activeHandler = this.subGridSelection;
                 this.selectionManager.moveActiveCell(1, 0);
                 break;
             case "ArrowLeft":
+                this.activeHandler = this.subGridSelection;
                 this.selectionManager.moveActiveCell(0, -1);
                 break;
             case "ArrowRight":
+                this.activeHandler = this.subGridSelection;
                 this.selectionManager.moveActiveCell(0, 1);
                 break;
             case "Enter": {
@@ -300,58 +213,6 @@ export class Grid {
         const col = gridX < 0 ? -1 : this.sizeStore.getColIndexAtOffset(gridX);
         const row = gridY < 0 ? -1 : this.sizeStore.getRowIndexAtOffset(gridY);
         return { row, col };
-    }
-
-    private findColumnResizeHandle(canvasX: number, canvasY: number): number | null {
-        if (canvasY > GridConfig.HEADER_HEIGHT) {
-            return null;
-        }
-        const gridX = this.viewport.canvasXToGridX(canvasX);
-        if (gridX < 0) {
-            return null;
-        }
-        const col = this.sizeStore.getColIndexAtOffset(gridX);
-        if (col < 0) {
-            return null;
-        }
-        const tolerance = GridConfig.RESIZE_HANDLE_TOLERANCE_PX;
-        const rightEdgeScreenX = GridConfig.HEADER_WIDTH + this.sizeStore.getColOffset(col + 1) - this.viewport.getScrollX();
-        if (Math.abs(canvasX - rightEdgeScreenX) < tolerance) {
-            return col;
-        }
-        if (col > 0) {
-            const leftEdgeScreenX = GridConfig.HEADER_WIDTH + this.sizeStore.getColOffset(col) - this.viewport.getScrollX();
-            if (Math.abs(canvasX - leftEdgeScreenX) < tolerance) {
-                return col - 1;
-            }
-        }
-        return null;
-    }
-
-    private findRowResizeHandle(canvasX: number, canvasY: number): number | null {
-        if (canvasX > GridConfig.HEADER_WIDTH) {
-            return null;
-        }
-        const gridY = this.viewport.canvasYToGridY(canvasY);
-        if (gridY < 0) {
-            return null;
-        }
-        const row = this.sizeStore.getRowIndexAtOffset(gridY);
-        if (row < 0) {
-            return null;
-        }
-        const tolerance = GridConfig.RESIZE_HANDLE_TOLERANCE_PX;
-        const bottomEdgeScreenY = GridConfig.HEADER_HEIGHT + this.sizeStore.getRowOffset(row + 1) - this.viewport.getScrollY();
-        if (Math.abs(canvasY - bottomEdgeScreenY) < tolerance) {
-            return row;
-        }
-        if (row > 0) {
-            const topEdgeScreenY = GridConfig.HEADER_HEIGHT + this.sizeStore.getRowOffset(row) - this.viewport.getScrollY();
-            if (Math.abs(canvasY - topEdgeScreenY) < tolerance) {
-                return row - 1;
-            }
-        }
-        return null;
     }
 
     private beginCellEdit(row: number, col: number): void {

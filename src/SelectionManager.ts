@@ -115,7 +115,8 @@ export class SelectionManager {
         const nextCol = this.clamp(this.activeCol + deltaCol, 0, this.colCount - 1);
         this.activeRow = nextRow;
         this.activeCol = nextCol;
-        this.dragTarget = "cells";
+        this.dragTarget = null;
+        this.dragAnchor = { row: this.activeRow, col: this.activeCol };
         this.selection = { startRow: nextRow, startCol: nextCol, endRow: nextRow, endCol: nextCol };
     }
 

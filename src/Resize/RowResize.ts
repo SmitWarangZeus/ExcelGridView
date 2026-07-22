@@ -57,7 +57,6 @@ export class RowResize {
         const rowToResize = this.findRowResizeHandle(x, y);
         if (rowToResize !== null) {
             this.resizeState = {
-                axis: "row",
                 index: rowToResize,
                 startPos: e.clientY,
                 oldSize: this.sizeStore.getRowHeight(rowToResize),
@@ -75,7 +74,7 @@ export class RowResize {
 
     public onPointerUp() {
         if (this.resizeState) {
-            const { axis, index, oldSize } = this.resizeState;
+            const { index, oldSize } = this.resizeState;
             const newSize = this.sizeStore.getRowHeight(index);
             this.commandManager.executeCommand(
                 new ResizeRowCommand(this.sizeStore, index, oldSize, newSize),

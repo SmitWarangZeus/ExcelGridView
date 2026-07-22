@@ -22,7 +22,6 @@ export type DragTargetType = "cells" | "rowHeader" | "colHeader" | null;
 export type ResizeAxis = "row" | "col";
 
 export interface ResizeState {
-    axis: ResizeAxis;
     index: number;
     startPos: number;
     oldSize: number;
