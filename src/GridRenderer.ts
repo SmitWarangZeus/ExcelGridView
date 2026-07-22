@@ -1,20 +1,18 @@
 import { RowColumnSizeStore } from "./data/RowColumnSizeStore.js";
 import { GridDataStore } from "./data/GridDataStore.js";
+import { SelectionManager } from "./SelectionManager.js";
 import { ViewportManager } from "./ViewportManager.js";
 import { GridConfig } from "./GridConfig.js";
-import type { RowHeaderSelection } from "./Selection/RowHeaderSelection.js";
-import type { ColHeaderSelection } from "./Selection/ColHeaderSelection.js";
-import type { SubGridSelection } from "./Selection/SubGridSelection.js";
-import type { GridSelection } from "./Selection/GridSelection.js";
 
 export class GridRenderer {
     constructor(
         private readonly sizeStore: RowColumnSizeStore,
         private readonly dataStore: GridDataStore,
+        private readonly selectionManager: SelectionManager,
         private readonly viewport: ViewportManager,
     ) {}
 
-    public draw(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number, activeHandler: RowHeaderSelection | ColHeaderSelection | SubGridSelection | GridSelection | null = null): void {
+    public draw(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number): void {
         const { COLORS, HEADER_HEIGHT, HEADER_WIDTH, CELL_FONT } = GridConfig;
 
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -27,7 +25,7 @@ export class GridRenderer {
         const startX = this.viewport.getRenderStartX(firstCol);
         const startY = this.viewport.getRenderStartY(firstRow);
 
-        const activeCell = activeHandler ? activeHandler.getActiveCell() : { row: -1, col: -1 };
+        const activeCell = this.selectionManager.getActiveCell();
         let activeCellRect = { x: 0, y: 0, w: 0, h: 0 };
 
         let currentY = startY;
@@ -43,7 +41,7 @@ export class GridRenderer {
                 ctx.strokeStyle = COLORS.gridLine;
                 ctx.strokeRect(currentX, currentY, colWidth, rowHeight);
 
-                if (activeHandler ? activeHandler.isCellSelected(r, c) : false) {
+                if (this.selectionManager.isCellSelected(r, c)) {
                     ctx.fillStyle = COLORS.selectionFill;
                     ctx.fillRect(currentX, currentY, colWidth, rowHeight);
                 }
@@ -60,7 +58,7 @@ export class GridRenderer {
             currentY += rowHeight;
         }
 
-        if (activeHandler ? activeHandler.hasActiveCell() : false) {
+        if (this.selectionManager.hasActiveCell()) {
             ctx.strokeStyle = COLORS.activeCellBorder;
             ctx.strokeRect(activeCellRect.x, activeCellRect.y, activeCellRect.w, activeCellRect.h);
         }
@@ -74,7 +72,7 @@ export class GridRenderer {
         for (let c = firstCol; c < this.sizeStore.getColCount(); c++) {
             if (headerX > canvasWidth) break;
             const colWidth = this.sizeStore.getColWidth(c);
-            const isSelected = activeHandler ? activeHandler.isColHeaderSelected(c) : false;
+            const isSelected = this.selectionManager.isColHeaderSelected(c);
             ctx.fillStyle = isSelected ? COLORS.headerBackgroundSelected : COLORS.headerBackground;
             ctx.fillRect(headerX, 0, colWidth, HEADER_HEIGHT);
             ctx.strokeStyle = COLORS.headerBorder;
@@ -88,7 +86,7 @@ export class GridRenderer {
         for (let r = firstRow; r < this.sizeStore.getRowCount(); r++) {
             if (headerY > canvasHeight) break;
             const rowHeight = this.sizeStore.getRowHeight(r);
-            const isSelected = activeHandler ? activeHandler.isRowHeaderSelected(r) : false;
+            const isSelected = this.selectionManager.isRowHeaderSelected(r);
             ctx.fillStyle = isSelected ? COLORS.headerBackgroundSelected : COLORS.headerBackground;
             ctx.fillRect(0, headerY, HEADER_WIDTH, rowHeight);
             ctx.strokeStyle = COLORS.headerBorder;
